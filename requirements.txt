@@ -1,0 +1,4 @@
+# site-audit — 표준 라이브러리 + playwright 만 필수. (anti-slop 은 npx 로 자동 설치)
+playwright>=1.50
+# 선택: PDF (thejsk export_pdf.py 는 시스템 Chrome/Edge 사용, 추가 패키지 없음)
+# 선택: naverai AI 브리핑 실측 → curl_cffi

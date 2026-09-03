@@ -1,0 +1,35 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.ppk
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# 패치 백업 (CLAUDE.md 규약대로 로컬에만 남긴다)
+*.bak
+*.bak.*
+
+# 진단 산출물 (고객 데이터. 저장소에 올리지 않는다)
+*-audit/
+*-site-audit-*/
+qa/
+raw/
+screenshots/
+collect.json
+render.json
+design.json
+findings.json
+scores.json
+narrative.json
+report.html
+report.md
+
+# 도구 부산물
+.gstack/
+.DS_Store
+Thumbs.db
