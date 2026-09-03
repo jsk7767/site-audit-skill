@@ -47,10 +47,10 @@ doctor → collect → render → design → check → score → [narrative] →
 | **collect** | robots·sitemap·llms.txt·404 프로브·헤더·TTFB, 페이지별 메타/헤딩/JSON-LD/이미지/링크/NAP, 링크 그래프, TLS 만료, **AI 봇 7종 UA 실제 요청**, 내부 링크 도달 확인 | `collect.json`, `raw/` |
 | **render** | Chromium 데스크톱 1440 + 모바일 390(CPU 4× 스로틀): LCP/CLS/TBT, 전송량, 가로 넘침, 11px 미만 글자, 44px 미만 탭 타깃, **axe-core 접근성 스캔**, 에이전트 조작 신호 | `render.json`, `screenshots/` |
 | **design** | anti-slop 73룰 × (CSS 합친 사본 + 마크업 전용 사본). CSS 유래와 마크업 유래를 분리 | `design.json` |
-| **check** | 166개 룰 판정. 항목마다 lane·category·severity·status·evidence·fix | `findings.json` |
+| **check** | 172개 룰 판정. 항목마다 lane·category·severity·status·evidence·fix | `findings.json` |
 | **score** | SEO 0~100 · GEO 0~100 · 디자인 판정 | `scores.json` |
 | **narrative** | **사람/에이전트가 작성.** 세 지렛대, 룰셋 밖의 판단, 오탐 메모, 판정 덮어쓰기 | `narrative.json` |
-| **report** | 자체완결 HTML + Markdown (라이트/다크, `word-break: keep-all`) | `report.html`, `report.md` |
+| **report** | 자체완결 HTML + Markdown. 맨 위에 **이번 주에 할 일 하나**, 그 아래 세 지렛대와 전수 목록 | `report.html`, `report.md` |
 | **qa** | 1000px·390px 가로 넘침 0, 콘솔 오류 0, 판단 작성 여부, 로컬 경로·비밀 노출 0 | `qa/`, exit code |
 
 첫 실행은 **QA가 "판단 미작성"으로 실패합니다. 정상입니다.** `narrative.json`을 쓴 뒤 `--report-only`로 다시 돌리면 됩니다.
@@ -99,11 +99,11 @@ SEO 가중치는 [claude-seo](https://github.com/AgriciDaniel/claude-seo) v2.2.5
 
 ---
 
-## 룰 166개
+## 룰 172개
 
 | 레인 | 개수 | 구성 |
 |---|---:|---|
-| **S** (SEO) | 96 | 기술 35 · 스키마 17 · 온페이지 17 · 성능 13 · 콘텐츠 7 · 이미지 5 · 링크 2 |
+| **S** (SEO) | 102 | 기술 37 · 온페이지 20 · 스키마 17 · 성능 13 · 콘텐츠 8 · 이미지 5 · 링크 2 |
 | **G** (GEO/AEO) | 46 | 접근 12 · 엔티티 11 · 인용가능성 9 · 네이버 6 · 신뢰 5 · 최신성 2 |
 | **D** (디자인·접근성) | 24 | anti-slop 73룰 집계 + 렌더 실측 + 접근성 |
 
@@ -130,6 +130,8 @@ SEO 가중치는 [claude-seo](https://github.com/AgriciDaniel/claude-seo) v2.2.5
 ```jsonc
 {
   "title": "사이트 A 진단",
+  "this_week": { "title": "이번 주에 끝낼 한 가지", "why": "왜 이것이 먼저인가",
+                 "how": "비전문가가 그대로 따라 할 절차", "effort": "예상 상승폭 · 작업량" },
   "levers": [ /* 점수를 올리는 세 가지. 무엇을·왜·얼마나 */ ],
   "judgment": "룰셋 밖의 판단 3~5문단. 이 사이트의 성격, 룰이 반대로 읽은 것, 잘하고 있는 것",
   "finding_notes":            { "S-C-price": "업종상 가격 비공개 정책" },

@@ -104,6 +104,15 @@ AXE_NAME_IDS = {"button-name", "link-name", "input-button-name", "image-alt", "i
 AXE_TREE_IDS = {"aria-required-parent", "aria-required-children", "aria-valid-attr", "aria-valid-attr-value",
                 "aria-roles", "aria-hidden-focus", "aria-hidden-body", "duplicate-id-aria", "nested-interactive"}
 
+
+def path_of_url(u: str) -> str:
+    """전체 URL 에서 경로만. 링크 그래프를 pages 키(경로)와 맞추기 위해."""
+    try:
+        pr = urllib.parse.urlsplit(u)
+        return (pr.path or "/") or "/"
+    except Exception:
+        return u
+
 def _as_list(v):
     """JSON-LD 는 값이 하나면 배열을 생략한다. 항상 리스트로 맞춘다."""
     if v is None:
@@ -527,6 +536,104 @@ def check_seo(F: Findings, c: dict, r: dict | None, facts: dict | None):
                   evidence=[f"{b['from']} → {b['to']}" for b in ba[:6]], fix="대상 요소에 id 를 붙이거나 링크를 고칩니다.", weight=1)
         elif lp.get("anchor_links"):
             F.ok("S-L-anchor", "S", "technical", "앵커 링크 대상 확인", evidence=[f"앵커 {lp['anchor_links']}건 전부 대상 존재"])
+
+
+    # --- 리다이렉트 체인 · 순환 ---
+    rp = c.get("redirect_probe") or {}
+    if rp and not rp.get("error") and rp.get("checked"):
+        loops, chains = rp.get("loops") or [], rp.get("chains") or []
+        if loops:
+            F.add("S-T-redirect-loop", "S", "technical", "P0", "FAIL", f"리다이렉트가 제자리를 도는 주소 {len(loops)}건",
+                  detail="브라우저도 크롤러도 그 페이지를 열지 못합니다. 색인에서 사라집니다.",
+                  evidence=[f"{l['path']}: " + " → ".join(h["to"][:60] for h in l["hops"][:3]) for l in loops[:4]],
+                  fix="리다이렉트 규칙이 서로를 가리키는 곳을 끊습니다.", weight=6)
+        if chains:
+            worst = max(x["n"] for x in chains)
+            sev = "P1" if worst >= 3 else "P2"
+            F.add("S-T-redirect-chain", "S", "technical", sev, "FAIL", f"두 번 이상 튕기는 주소 {len(chains)}건 (최대 {worst}홉)",
+                  detail="매 요청이 왕복을 더하고 크롤러는 홉 예산을 씁니다. 중간 단계를 건너뛰고 처음부터 최종 주소로 보내면 됩니다.",
+                  evidence=[f"{x['path']} — {x['n']}홉: " + " → ".join(u[:44] for u in x["trail"][:3]) for x in chains[:4]],
+                  fix="첫 규칙이 곧바로 최종 URL 을 가리키게 고칩니다.", weight=2 if sev == "P1" else 1)
+        if not loops and not chains:
+            F.ok("S-T-redirect-chain", "S", "technical", "리다이렉트 체인 없음", evidence=[f"리다이렉트 {rp['checked']}건 전부 1홉"])
+
+    # --- 본문이 사실상 같은 페이지 ---
+    import hashlib as _hl
+    sig: dict[str, list[str]] = {}
+    for q, pg in pages.items():
+        t = re.sub(r"\s+", "", visible_text(raw_html(c, pg)))
+        if len(t) < 300:                       # 너무 짧으면 우연히 같을 수 있다
+            continue
+        robots = ((pg.get("robots_meta") or "") + " " + (pg.get("x_robots_tag") or "")).lower()
+        if "noindex" in robots:                # 운영자가 이미 정리한 페이지는 뺀다
+            continue
+        canon = (pg.get("canonical") or "").rstrip("/")
+        if canon and not canon.endswith(q.rstrip("/")) and q != "/":
+            continue                           # 다른 URL 로 정규화해 둔 페이지도 뺀다
+        sig.setdefault(_hl.sha1(t.encode("utf-8")).hexdigest(), []).append(q)
+    dupc = [ps for ps in sig.values() if len(ps) > 1]
+    if dupc:
+        F.add("S-C-dup-content", "S", "content", "P1", "FAIL", f"본문이 사실상 같은 페이지 묶음 {len(dupc)}개",
+              detail="검색엔진은 그중 하나만 고르고 나머지는 색인에서 뺍니다. 어느 쪽이 남을지는 우리가 정할 수 없습니다. "
+                     "정말 같은 내용이면 하나로 합치거나 canonical 로 정본을 지정하고, 다른 내용이어야 한다면 실제로 달라야 합니다.",
+              evidence=[" = ".join(g[:4]) for g in dupc[:5]],
+              fix="합치기 · canonical 로 정본 지정 · 또는 내용을 실제로 다르게", weight=3)
+    elif len(sig) >= 2:
+        F.ok("S-C-dup-content", "S", "content", "페이지마다 본문이 다릅니다", evidence=[f"본문 300자 이상 {len(sig)}페이지 비교"])
+
+    # --- 헤딩 단계 건너뛰기 ---
+    skips = []
+    for q, pg in pages.items():
+        lv = [int(h["tag"][1]) for h in (pg.get("headings") or []) if re.fullmatch(r"h[1-6]", h.get("tag") or "")]
+        prev = None
+        for x in lv:
+            if prev is not None and x > prev + 1:
+                skips.append(f"{q}: h{prev} 다음에 h{x}")
+                break
+            prev = x
+    if skips:
+        F.add("S-O-heading-order", "S", "onpage", "P2", "FAIL", f"제목 단계를 건너뛴 페이지 {len(skips)}개",
+              detail="h2 없이 h1 에서 h3 으로 넘어가면 문서의 층이 어긋납니다. 화면 낭독기와 본문을 덩어리로 끊어 읽는 기계가 구조를 잘못 잡습니다. "
+                     "글자 크기 때문에 단계를 고른 경우가 대부분인데, 크기는 CSS 로 정하고 단계는 내용의 층으로 정합니다.",
+              evidence=skips[:6], fix="단계를 순서대로 쓰고 크기는 CSS 로", weight=1)
+    else:
+        F.ok("S-O-heading-order", "S", "onpage", "제목 단계가 순서대로입니다")
+
+    # --- 클릭 깊이 · 막다른 페이지 ---
+    adj: dict[str, set[str]] = {}
+    for q, pg in pages.items():
+        outs = set()
+        for l in ((pg.get("links") or {}).get("internal") or []):
+            tgt = path_of_url(l)
+            if tgt in pages and tgt != q:
+                outs.add(tgt)
+        adj[q] = outs
+    if "/" in adj and len(pages) >= 4:
+        depth = {"/": 0}
+        frontier = ["/"]
+        while frontier:
+            nxt = []
+            for q in frontier:
+                for t in adj.get(q, ()):
+                    if t not in depth:
+                        depth[t] = depth[q] + 1
+                        nxt.append(t)
+            frontier = nxt
+        deep = sorted(((d, q) for q, d in depth.items() if d >= 4), reverse=True)
+        if deep:
+            F.add("S-O-depth", "S", "onpage", "P2", "FAIL", f"홈에서 {deep[0][0]}번 이상 눌러야 닿는 페이지 {len(deep)}개",
+                  detail="깊이 들어간 페이지는 사람도 크롤러도 늦게 닿습니다. 홈이나 주요 페이지에서 세 번 안에 닿게 두는 편이 안전합니다.",
+                  evidence=[f"{q} — {d}단계" for d, q in deep[:6]],
+                  fix="주요 페이지 목록이나 푸터에서 직접 링크합니다.", weight=1)
+        else:
+            F.ok("S-O-depth", "S", "onpage", "모든 페이지가 홈에서 3번 안에 닿습니다",
+                 evidence=[f"최대 깊이 {max(depth.values())}단계 · {len(depth)}/{len(pages)}페이지 도달"])
+    dead = [q for q, outs in adj.items() if not outs and (pg := pages.get(q)) and (pg.get("links") or {}).get("internal_count", 0) == 0]
+    if dead and len(pages) >= 3:
+        F.add("S-O-no-outlink", "S", "onpage", "INFO", "FAIL", f"원본 HTML 에 나가는 링크가 없는 페이지 {len(dead)}개",
+              detail="들어온 사람이 다음으로 갈 곳이 없고, 크롤러도 그 페이지에서 멈춥니다. 다만 내비게이션을 자바스크립트로 그리는 사이트라면 "
+                     "브라우저에서는 링크가 보입니다. 자바스크립트를 실행하지 않는 수집기 기준의 관측이라 점수에는 넣지 않았습니다.",
+              evidence=dead[:6], fix="관련 페이지나 홈으로 가는 링크를 원본 HTML 에 둡니다.", weight=0)
 
     # --- 온페이지 (CS-onpage)
     no_title = [p for p, pg in pages.items() if not (pg.get("title") or "").strip()]

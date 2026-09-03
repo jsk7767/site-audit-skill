@@ -350,6 +350,10 @@ def collect_live(origin: str, out: str, max_pages: int, extra: list[str], delay:
     res["pages_capped"] = bool(queue) and n >= max_pages
     res["not_in_sitemap"] = sorted({d for d in discovered if d in seen and d not in res["sitemap_locs"]})[:30]
     try:
+        res["redirect_probe"] = probe_redirects(res["pages"])
+    except Exception as e:
+        res["redirect_probe"] = {"error": str(e)[:160]}
+    try:
         res["tls"] = probe_tls(origin)
     except Exception as e:
         res["tls"] = {"error": str(e)[:160]}
@@ -454,11 +458,14 @@ def _post(res: dict, origin: str) -> None:
                     break
     res["link_graph"] = {"inbound": inbound,
                          "orphans": [p for p, c in inbound.items() if c == 0 and p != "/"]}
-    # 제목 중복: canonical 이 같은 페이지(?view=site 같은 변형)는 한 페이지로 본다
+    # 제목 중복: canonical 이 같은 페이지(?view=site 같은 변형)는 한 페이지로 본다.
+    # noindex 를 걸어 둔 페이지는 운영자가 이미 정리한 것이므로 중복 묶음에서 뺀다
+    # (이미 고친 것을 고치라고 하는 지적이 된다).
     titles: dict[str, dict[str, str]] = {}
     for p, pg in pages.items():
         t = (pg.get("title") or "").strip()
-        if t:
+        robots = ((pg.get("robots_meta") or "") + " " + (pg.get("x_robots_tag") or "")).lower()
+        if t and "noindex" not in robots:
             key = (pg.get("canonical") or pg.get("final_url") or p).rstrip("/")
             titles.setdefault(t, {})[key] = p
     res["duplicate_titles"] = {t: sorted(ps.values()) for t, ps in titles.items() if len(ps) > 1}
@@ -520,6 +527,42 @@ AI_BOT_UAS = [
 ]
 
 
+
+
+def probe_redirects(pages: dict, limit: int = 20, max_hops: int = 6) -> dict:
+    """리다이렉트한 페이지만 골라 홉을 하나씩 따라간다.
+
+    follow=True 로 받은 응답은 최종 URL 만 알려 주고 몇 번 튕겼는지는 모른다.
+    두 번 이상 튕기면 매 요청이 왕복을 더하고, 크롤러는 홉 예산을 쓴다. 순환이면 페이지가 아예 안 열린다.
+    """
+    out = {"checked": 0, "chains": [], "loops": []}
+    todo = [(path, pg.get("url")) for path, pg in pages.items()
+            if pg.get("redirected") and pg.get("url")][:limit]
+    for path, start in todo:
+        hops, seen, cur = [], set(), start
+        for _ in range(max_hops):
+            r = fetch(cur, follow=False, timeout=15)
+            st = r.get("status")
+            loc = (r.get("headers") or {}).get("location")
+            if st is None or not (300 <= st < 400) or not loc:
+                break
+            nxt = urllib.parse.urljoin(cur, loc)
+            hops.append({"from": cur, "to": nxt, "status": st})
+            if nxt in seen or nxt == cur:
+                out["loops"].append({"path": path, "hops": hops})
+                break
+            seen.add(cur)
+            cur = nxt
+            time.sleep(0.15)
+        else:
+            out["loops"].append({"path": path, "hops": hops})   # max_hops 를 다 써도 안 끝남
+        out["checked"] += 1
+        if len(hops) >= 2 and not any(l["path"] == path for l in out["loops"]):
+            out["chains"].append({"path": path, "n": len(hops),
+                                  "trail": [h["from"] for h in hops] + [cur]})
+    out["chains"] = out["chains"][:10]
+    out["loops"] = out["loops"][:10]
+    return out
 
 def probe_tls(origin: str) -> dict:
     """인증서 만료일을 본다. 만료되면 브라우저가 경고 화면을 띄워 사이트 전체가 멈춘다."""

@@ -70,6 +70,12 @@ section{margin-top:68px}
 .sec-head h2{font-size:25px;letter-spacing:-.01em}
 .sec-head .lede{color:var(--muted);font-size:14px;margin-top:6px;font-family:"IBM Plex Mono",monospace}
 .prose{max-width:70ch}.prose p+p{margin-top:16px}
+.thisweek{border:1px solid var(--accent);border-left-width:5px;border-radius:10px;padding:22px 24px;margin:0 0 26px;background:var(--surface)}
+.thisweek .tag{font-size:12px;letter-spacing:.08em;color:var(--accent);font-weight:700;margin-bottom:8px}
+.thisweek h2{margin:0 0 10px;font-size:22px;line-height:1.35;word-break:keep-all}
+.thisweek p{margin:0 0 10px;line-height:1.75;word-break:keep-all}
+.thisweek .how{padding:12px 14px;border-radius:8px;background:var(--ground);line-height:1.7;word-break:keep-all}
+.thisweek .meta{margin-top:10px;font-size:13px;color:var(--muted)}
 .levers{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
 .lever{background:var(--surface);border:1px solid var(--line);border-radius:2px;padding:22px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
 .lever .rank{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
@@ -274,6 +280,25 @@ def build(out_dir: str, name: str, compare: list[str], inline_shots: bool) -> tu
     H.append("</div>")
     if not sc.get("unreachable"):
         H.append(f'<p class="note">{E(sc.get("disclaimer", ""))}</p>')
+    # 이번 주 할 일 하나 — 사장님이 첫 화면에서 무엇부터 할지 알게 한다.
+    # narrative 에 없으면 첫 번째 지렛대를 그대로 쓴다 (지어내지 않고 이미 근거가 있는 것 중 가장 큰 것).
+    tw = nar.get("this_week")
+    _lv = nar.get("levers") or []
+    if not tw and _lv:
+        tw = {"title": _lv[0].get("title", ""), "why": _lv[0].get("body", ""), "how": "", "effort": _lv[0].get("gain", "")}
+    if tw and tw.get("title"):
+        H.append('<section class="thisweek"><div class="tag">이번 주에 할 일 하나</div>')
+        H.append(f'<h2>{E(tw.get("title", ""))}</h2>')
+        if tw.get("why"):
+            H.append(f'<p>{E(tw["why"])}</p>')
+        if tw.get("how"):
+            H.append(f'<div class="how">{E(tw["how"])}</div>')
+        bits = [x for x in (tw.get("effort"), tw.get("owner")) if x]
+        if bits:
+            H.append(f'<div class="meta">{E(" · ".join(bits))}</div>')
+        H.append('<div class="meta">나머지 항목은 이것을 끝낸 뒤에 봐도 됩니다. 아래 목록은 전수 점검 결과이며, 순서는 급한 것부터입니다.</div>')
+        H.append("</section>")
+
     # levers
     levers = nar.get("levers")
     if not levers:
@@ -372,6 +397,16 @@ def build(out_dir: str, name: str, compare: list[str], inline_shots: bool) -> tu
     # markdown
     M = [f"# {title}", "", lede, "", f"- 대상: {host} · 진단일 {today} · {n_pages}페이지",
          f"- **SEO {seo.get('total', '?')}** / **GEO {geo.get('total', '?')}** / 디자인 **{des.get('verdict', '?')}** (검출 {des.get('total_hits') or 0})", ""]
+    if tw and tw.get("title"):
+        M += ["## 이번 주에 할 일 하나", "", f"**{tw['title']}**", ""]
+        if tw.get("why"):
+            M += [tw["why"], ""]
+        if tw.get("how"):
+            M += ["> " + tw["how"].replace("\n", "\n> "), ""]
+        _bits = [x for x in (tw.get("effort"), tw.get("owner")) if x]
+        if _bits:
+            M += [" · ".join(_bits), ""]
+        M += ["나머지 항목은 이것을 끝낸 뒤에 봐도 됩니다.", ""]
     for lbl, lst in (("P0", p0), ("P1", p1), ("P2", p2[:12])):
         if lst:
             M.append(f"## {lbl}")
