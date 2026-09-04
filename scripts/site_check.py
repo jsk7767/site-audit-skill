@@ -1370,7 +1370,8 @@ def check_geo(F: Findings, c: dict, r: dict | None, facts: dict | None, brand: s
     og_ok = bool(((pages.get("/") or {}).get("og") or {}).get("image"))
     if og_ok:
         F.ok("G-N-share", "G", "neo", "카카오톡 공유 미리보기(OG 이미지) 준비", refs=["K45"])
-    F.hold("G-N-briefing", "G", "neo", "네이버 AI 브리핑·AiRS 순위 실측은 에이전트가 naverai 로 별도 수행", detail="py -3 ~/.claude/skills/naverai/naver_ai_overview.py \"<질문>\" --mention \"<상호>\" / naver_place_rank.py \"<지역 업종>\" --id <placeId>", refs=["NEO-5", "W-score", "G-self-D1"])
+    F.hold("G-N-briefing", "G", "neo", "네이버 AI 브리핑·AiRS 순위 실측은 에이전트가 naverai 로 별도 수행", detail="naverai 스킬이 설치돼 있으면 실측합니다(선택). 없으면 이 항목은 HOLD 로 두고 보고서 '확인하지 못한 것' 에 적습니다. "
+                      "실행: <doctor 가 통과한 python> ~/.claude/skills/naverai/naver_ai_overview.py \"<질문>\" --mention \"<상호>\"", refs=["NEO-5", "W-score", "G-self-D1"])
     F.hold("G-N-ai-know", "G", "neo", "시크릿창 AI 질문(\"<상호> 어떤 곳이야?\")으로 AI 가 매장을 아는지·틀리게 아는지 확인 (D1 진단)", detail="ChatGPT·Claude·Gemini·Perplexity·네이버 AI 브리핑에 같은 질문 5~10개 → 인용 O/X 기록, 14일 후 재측정.", refs=["G-self-D1", "W-secret", "FYS-measure"])
 
 

@@ -1,6 +1,6 @@
 ---
 name: site-audit
-description: "Use when 사용자가 웹사이트·홈페이지 URL 을 주고 SEO·GEO/AEO(AI 검색)·디자인을 한 번에 점검·진단·감사해 고객용 보고서를 만들어야 할 때, 배포 전 로컬 사이트 폴더를 같은 기준으로 게이트 검사할 때, 홈페이지를 새로 설계·제작하기 전 지켜야 할 지침·체크리스트를 요청받을 때, 이전 진단과 재진단을 비교할 때, 여러 사이트를 같은 잣대로 비교할 때. 트리거 — '사이트 점검', '홈페이지 진단', 'SEO GEO 디자인 한번에', 'AI 검색 대응 점검', '재진단', 'N개 사이트 비교', '홈페이지 설계 지침', 'site-audit'. 네이버 플레이스 자체 정밀진단은 thejsk, AI 브리핑 실측은 naverai."
+description: "Use when 사용자가 웹사이트·홈페이지 URL 을 주고 SEO·GEO/AEO(AI 검색)·디자인을 한 번에 점검·진단·감사해 고객용 보고서를 만들어야 할 때, 배포 전 로컬 사이트 폴더를 같은 기준으로 게이트 검사할 때, 홈페이지를 새로 설계·제작하기 전 지켜야 할 지침·체크리스트를 요청받을 때, 이전 진단과 재진단을 비교할 때, 여러 사이트를 같은 잣대로 비교할 때. 트리거 — '사이트 점검', '홈페이지 진단', 'SEO GEO 디자인 한번에', 'AI 검색 대응 점검', '재진단', 'N개 사이트 비교', '홈페이지 설계 지침', 'site-audit'. 네이버 플레이스 자체 정밀진단은 thejsk, AI 브리핑 실측은 naverai (**둘 다 선택. 없어도 진단은 완주한다**)."
 version: 1.0.0
 author: JSK
 license: MIT
@@ -70,9 +70,19 @@ Codex `$site-audit`, Claude Code `/site-audit`, Hermes `/skill site-audit`. 스�
 ## 0단계 — 사전점검
 
 ```bash
-py -3 ~/.claude/skills/site-audit/scripts/doctor.py
+py -3 ~/.claude/skills/site-audit/scripts/doctor.py      # 또는 python / python3 / 가상환경의 python
 ```
-READY 가 아니면 멈춘다. Windows Git Bash 에서는 `python` 대신 **`py -3`**, 경로 인자 앞에 **`MSYS_NO_PATHCONV=1`** (run_all.py 는 자동 설정).
+
+READY 가 아니면 멈춘다. **doctor 가 마지막 줄에 찍어 주는 인터프리터 경로로 나머지를 실행한다.**
+`py -3`·`python`·`python3` 가 서로 다른 파이썬을 가리키는 환경이 흔하다(가상환경·Windows 런처).
+doctor 는 각각이 무엇을 가리키는지 표로 보여 주고, 검사에 통과한 것과 다르면 `← 다릅니다` 를 붙인다.
+아래 문서의 `py -3` 은 **그 인터프리터**로 읽는다. 한 번 올바르게 시작하면 `run_all.py` 가 `sys.executable` 로
+하위 스크립트를 부르므로 그 뒤는 따라온다.
+
+Python 은 3.10 이상이면 된다. Git Bash 에서는 경로 인자 앞에 **`MSYS_NO_PATHCONV=1`** (run_all.py 는 자동 설정).
+
+**없어도 되는 것**: `naverai`(AI 브리핑 실측)·`thejsk`(플레이스 대조·PDF)는 선택이다. 어떤 스크립트도 호출하지 않는다.
+없으면 해당 항목을 HOLD 로 두고 보고서 "확인하지 못한 것" 에 적는다. 점수와 나머지 룰은 그대로 나온다.
 
 ## 1~5단계 — 기계 측정 (한 번에)
 

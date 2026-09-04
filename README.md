@@ -102,6 +102,27 @@ AI 에이전트에게 시킬 때는 코드 실행 없이 `build-guideline.md`를
 
 ---
 
+## 처음 쓰는 컴퓨터라면
+
+**먼저 `doctor`를 돌리고, 그것이 찍어 준 경로로 나머지를 실행하세요.**
+
+```bash
+py -3 scripts/doctor.py     # 또는 python / python3 / 가상환경의 python
+```
+
+이 컴퓨터에서 `py -3`·`python`·`python3`가 각각 어떤 파이썬을 가리키는지, 그중 무엇이 검사에 통과했는지 표로 찍어 줍니다. `← 다릅니다`가 붙은 것을 쓰면 "playwright가 없다"는 오류를 만납니다. 마지막 줄에 복사해 쓸 명령이 나옵니다.
+
+```
+READY. 이 인터프리터로 실행하세요:
+  "C:\...\python.exe" "...\scriptsun_all.py" <URL> --name "매장명" --out ./example-audit
+```
+
+한 번 올바른 인터프리터로 시작하면 그 뒤는 알아서 따라갑니다. `run_all.py`가 하위 스크립트를 `sys.executable`로 부르기 때문입니다.
+
+**없어도 되는 것** `doctor`가 선택 항목으로 표시합니다. 같은 계정의 다른 스킬인 `naverai`(네이버 AI 브리핑·AiRS 실측)와 `thejsk`(플레이스 정밀 대조·PDF)는 **없어도 진단이 끝까지 돕니다.** 어떤 스크립트도 이것들을 호출하지 않습니다. 없으면 해당 항목이 `HOLD`로 남고, 보고서의 "확인하지 못한 것"에 그 사실이 적힙니다. 점수와 나머지 171개 룰은 그대로 나옵니다.
+
+---
+
 ## 설치와 실행
 
 ```bash
@@ -112,7 +133,7 @@ py -3 scripts/doctor.py          # READY 가 나와야 실행 가능
 
 | 필요한 것 | |
 |---|---|
-| Python | 3.12+ (표준 라이브러리 + Playwright) |
+| Python | **3.10+** (3.11·3.14에서 확인. 표준 라이브러리 + Playwright만) |
 | Chromium | Playwright가 설치 |
 | Node.js / npx | 디자인 결함 탐지(anti-slop)를 `npx -y @gessobuild/anti-slop`으로 자동 실행 |
 | `vendor/axe.min.js` | 접근성 검사용. 저장소에 동봉(axe-core 4.13.0) |
