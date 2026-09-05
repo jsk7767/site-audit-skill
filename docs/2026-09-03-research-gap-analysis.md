@@ -607,3 +607,29 @@ Semrush·Ahrefs 대체재이고 실제 데이터는 **DataForSEO 유료 키**가
 `
 ` 이 파이썬 비-raw 문자열에서 실제 개행으로 치환돼 `site_report.py` 가 문법 오류로 깨졌다. §13-4 와 같은 사고를 **또** 냈다. 이번엔 `chr(92) + "n"` 으로 조립해 고쳤다. 앞으로 패치 문자열에 `
 `·`` 를 쓰지 말고 `chr()` 로 조립하거나 raw 문자열을 쓴다.
+
+---
+
+## 15. GA4 AI Assistant 채널 — "측정 불가" 판정 부분 철회 (2026-09-05)
+
+§9 3군에 **"5개 LLM 실시간 인용률 측정(비결정적)"** 을 넣어 두었다. 인용률 자체는 여전히 비결정적이지만, **AI 답변에서 사이트로 넘어온 유입**은 이제 결정적으로 볼 수 있다. 그 부분은 철회한다.
+
+**GA4 기본 채널 그룹 `AI Assistant`**
+- 조건: medium `ai-assistant` · campaign `(ai-assistant)`. 인식된 AI 리퍼러면 GA4 가 자동 부여
+- 인식 목록: 출시 공지 ChatGPT·Gemini·Claude / 2026-06 문서 ChatGPT·Gemini·Deepseek·Copilot·Grok. **구글이 전체 목록을 공개하지 않았고 두 표기가 다르다** → 목록을 확정으로 쓰지 않는다
+- **한계**: 리퍼러 헤더 없이 오는 유입(앱 내 브라우저·모바일 앱·링크 복사)은 전부 Direct 로 빠진다. **하한선이지 전부가 아니다**
+
+우리 도구는 GA4 에 접근하지 않으므로 룰로 넣지 않는다. 대신 `build-guideline.md` 운영 루틴에 "월 1회 AI Assistant 행의 세션·참여율 기록" 으로 넣고, 한계 문장을 함께 적게 했다.
+
+### 15-1. 함께 넣은 것 — 트래픽을 성과로 읽기 전 3점 검증
+공개된 사례에서 세션 7,081 · 참여율 0.83% · 평균 참여시간 0초 · 그래프가 수직 상승 후 평평한 데이터를 "광고 없이 낸 성과" 로 소개하는 것을 봤다. 세 신호가 동시에 봇을 가리킨다. GA4 는 알려진 봇만 거르고 헤드리스·스크래퍼는 사람으로 센다.
+
+| 볼 것 | 사람 | 봇 섞임 |
+|---|---|---|
+| 참여율 | 40~60% | 1% 안팎 |
+| 평균 참여시간 | 수십 초 | 0초 |
+| 그래프 | 계단식 | 수직 후 평평 |
+
+**가장 확실한 대조는 서치콘솔 클릭 수**다(구글이 자기 결과에서 센 값이라 봇이 없다). 지침에 표로 넣었다.
+
+출처: [Search Engine Journal](https://www.searchenginejournal.com/google-analytics-adds-ai-assistant-as-default-channel-group/574974/) · [GA4 Optimizer](https://www.gaoptimizer.com/blog/ga4-ai-assistant-channel/) · [AIVO](https://www.tryaivo.com/blog/ga4-ai-assistant-channel)
