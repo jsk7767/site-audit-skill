@@ -63,6 +63,9 @@ PAGE_JS = r"""() => {
   const overflow = de.scrollWidth > de.clientWidth + 1;
   const wide = []; if (overflow) { for (const el of document.body.querySelectorAll('*')) { const r = el.getBoundingClientRect(); if (r.right > vw + 1 && r.width > 40) { wide.push(el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '') + ` w=${Math.round(r.width)}`); if (wide.length >= 5) break; } } }
   // above-the-fold 내용
+  // 접힘 위 이미지의 alt 도 담는다. 로고에만 상호가 있는 사이트가 흔한데,
+  // 스크린리더도 AI 크롤러도 alt 를 읽으므로 '텍스트로 없다' 고 판정하면 오탐이 된다.
+  const foldAlts = []; for (const im of document.images) { const r = im.getBoundingClientRect(); const a = (im.getAttribute('alt')||'').trim(); if (a && r.top >= 0 && r.top < vh && r.width > 0 && r.height > 0 && foldAlts.length < 12 && !foldAlts.includes(a)) foldAlts.push(a.slice(0,80)); }
   const foldText = []; for (const el of document.body.querySelectorAll('h1,h2,h3,p,a,li,span')) { const r = el.getBoundingClientRect(); if (r.top >= 0 && r.top < vh && r.width > 0 && r.height > 0) { const t = (el.innerText || el.textContent).replace(/\s+/g,' ').trim(); if (t.length > 3 && foldText.length < 40 && !foldText.includes(t.slice(0,80))) foldText.push(t.slice(0,80)); } }
   // 이미지: 실제 표시 크기 대비 원본 과대 (2배 이상)
   let imgs = 0, oversized = 0, noDims = 0; const overs = [];
@@ -78,7 +81,7 @@ PAGE_JS = r"""() => {
     scrollHeight: de.scrollHeight, vw, vh,
     firstHeading, h1, textNodes: total, tinyText: tiny, fontSizeHist: sizes,
     tapTargets: tCount, smallTapTargets: small, smallTapSamples: smallSamples,
-    overflowX: overflow, overflowSamples: wide, foldText,
+    overflowX: overflow, overflowSamples: wide, foldText, foldAlts,
     renderedBodyChars: (document.body.innerText || '').replace(/\s+/g, ' ').trim().length,
     imgs, oversizedImgs: oversized, oversizedSamples: overs, imgsNoDims: noDims,
     darkModeRules: darkRules, bodyFont: bodyCs.fontFamily.slice(0, 80), bodyWordBreak: bodyCs.wordBreak, bodyLineHeight: bodyCs.lineHeight,

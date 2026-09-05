@@ -76,6 +76,7 @@ section{margin-top:68px}
 .thisweek p{margin:0 0 10px;line-height:1.75;word-break:keep-all}
 .thisweek .how{padding:12px 14px;border-radius:8px;background:var(--ground);line-height:1.7;word-break:keep-all}
 .thisweek .meta{margin-top:10px;font-size:13px;color:var(--muted)}
+.warn-box{border:1px solid var(--mid);border-left-width:5px;background:var(--mid-soft);border-radius:8px;padding:16px 18px;line-height:1.7;word-break:keep-all;margin:0 0 22px}
 .levers{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
 .lever{background:var(--surface);border:1px solid var(--line);border-radius:2px;padding:22px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
 .lever .rank{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;letter-spacing:.1em;color:var(--accent);text-transform:uppercase}
@@ -364,10 +365,20 @@ def build(out_dir: str, name: str, compare: list[str], inline_shots: bool) -> tu
             r2 = load_json(os.path.join(cd, "render.json")) or {}
             m2 = ((r2.get("pages") or {}).get("/") or next(iter((r2.get("pages") or {}).values()), {})).get("mobile_4x") or {}
             rows.append((c2.get("host", os.path.basename(cd)), s2.get("seo", {}).get("total"), s2.get("geo", {}).get("total"), s2.get("design", {}).get("verdict"),
-                         len(c2.get("pages") or {}), c2.get("body_chars_total"), (m2.get("total_bytes") or 0) / 1048576, m2.get("tbt"), cd == out_dir))
+                         len(c2.get("pages") or {}), c2.get("body_chars_total"), (m2.get("total_bytes") or 0) / 1048576, m2.get("tbt"), cd == out_dir,
+                         bool(s2.get("narrative_applied"))))
         rows.sort(key=lambda x: -(x[1] or 0))
+        # 판단(narrative) 적용 여부가 섞이면 점수 기준이 서로 달라 비교가 성립하지 않는다.
+        mixed = len({r[9] for r in rows}) > 1
+        if mixed:
+            _yes = ", ".join(str(r[0]) for r in rows if r[9]) or "없음"
+            _no = ", ".join(str(r[0]) for r in rows if not r[9]) or "없음"
+            H.append('<section><div class="warn-box"><b>이 표는 그대로 비교하면 안 됩니다.</b><br>'
+                     f'진단자의 판단(오탐 정정·판정 덮어쓰기)을 적용한 것: {E(_yes)}<br>'
+                     f'적용 전 기계 판정: {E(_no)}<br>'
+                     '기준이 서로 달라 점수 차이가 실제 차이가 아닐 수 있습니다. 모두 판단을 적용한 뒤 다시 비교하세요.</div></section>')
         H.append(f'<section><div class="sec-head"><h2>{len(rows)}개 사이트 비교</h2><div class="lede">같은 도구 · 같은 가중치</div></div><div class="tw"><table><thead><tr><th>사이트</th><th class="num">SEO</th><th class="num">GEO</th><th>디자인</th><th class="num">페이지</th><th class="num">본문</th><th class="num">모바일 전송</th><th class="num">TBT</th></tr></thead><tbody>')
-        for hst, s1, g1, dv, np_, bc_, mb, tbt, me in rows:
+        for hst, s1, g1, dv, np_, bc_, mb, tbt, me, _nar in rows:
             H.append(f'<tr{" class=hot" if me else ""}><td><b>{E(str(hst))}</b></td><td class="num s-{color(s1 or 0)}">{s1}</td><td class="num s-{color(g1 or 0)}">{g1}</td><td>{E(str(dv))}</td><td class="num">{np_}</td><td class="num">{(bc_ or 0):,}자</td><td class="num">{mb:.2f} MB</td><td class="num">{round(tbt or 0)} ms</td></tr>')
         H.append("</tbody></table></div>")
         if nar.get("compare_comment"):

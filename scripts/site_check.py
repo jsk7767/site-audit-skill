@@ -1272,19 +1272,34 @@ def check_geo(F: Findings, c: dict, r: dict | None, facts: dict | None, brand: s
     longp = sum(pg.get("long_paragraphs", 0) for pg in pages.values())
     if longp >= 3:
         F.add("G-C-paragraph", "G", "citability", "P2", "FAIL", f"400자 넘는 긴 문단 {longp}개", fix="2~4문장 단위로 나누고 소제목", refs=["G-structure"], weight=1)
+    # 홈 도입부 = h1 + 첫 문단. 조합을 h1 에 넣고 문단은 이어가는 구성이 흔해서 문단만 보면 오탐이 난다.
     fp = home.get("first_paragraph") or ""
-    if fp and (brand or region or category):
+    h1_txt = " ".join(home.get("h1") or [])
+    lead = (h1_txt + " " + fp).strip()
+    if lead and (brand or region or category):
         keys = [k for k in (brand, region, category) if k]
-        hit = [k for k in keys if k and k.lower() in fp.lower()]
-        if len(hit) >= 2:
-            F.ok("G-C-lead", "G", "citability", "첫 문단에 상호·지역·업종이 들어 있습니다", evidence=[fp[:100]], refs=["K02", "K29"])
+        hit = [k for k in keys if k and k.lower() in lead.lower()]
+        need = 2 if len(keys) >= 2 else 1
+        where = "h1" if (h1_txt and sum(1 for k in keys if k.lower() in h1_txt.lower()) >= need) else "첫 문단"
+        if len(keys) < 2:
+            # 지역·업종을 안 받으면 조합을 판정할 수 없다. 상호 하나로 2개 일치를 요구하면 영원히 FAIL 이다.
+            F.hold("G-C-lead", "G", "citability", "도입부 조합은 지역·업종을 알려 주셔야 판정할 수 있습니다",
+                   detail="--region 과 --category 를 주면 h1 + 첫 문단에 '지역 + 업종 + 상호' 가 들어 있는지 봅니다.",
+                   evidence=[f"h1: {h1_txt[:70]}" if h1_txt else "h1 없음", f"첫 문단: {fp[:70]}", f"받은 키워드 {keys}"])
+        elif len(hit) >= need:
+            F.ok("G-C-lead", "G", "citability", f"도입부({where})에 상호·지역·업종이 들어 있습니다",
+                 evidence=[f"h1: {h1_txt[:70]}" if h1_txt else "h1 없음", f"첫 문단: {fp[:70]}", f"확인된 키워드 {hit}"], refs=["K02", "K29"])
         else:
-            F.add("G-C-lead", "G", "citability", "P2", "FAIL", "홈 첫 문단에 상호·지역·업종 조합이 없습니다", evidence=[fp[:100], f"확인 키워드 {keys}"], fix="첫 문단 = 지역 + 업종 + 핵심 가치 한 문장", refs=["K02", "K29"], weight=1.5)
+            F.add("G-C-lead", "G", "citability", "P2", "FAIL", "홈 도입부(h1 + 첫 문단)에 상호·지역·업종 조합이 없습니다",
+                  detail="사람이 처음 읽는 두 줄이자, 기계가 이 페이지가 무엇에 대한 것인지 판단하는 자리입니다. 셋 중 둘 이상이 들어가야 합니다.",
+                  evidence=[f"h1: {h1_txt[:80]}" if h1_txt else "h1 없음", f"첫 문단: {fp[:80]}", f"확인 키워드 {keys}"],
+                  fix="h1 이나 바로 아래 첫 문장에 '지역 + 업종 + 상호' 를 넣습니다", refs=["K02", "K29"], weight=1.5)
     if r and not r.get("error"):
         rp = (r.get("pages") or {}).get("/") or next(iter((r.get("pages") or {}).values()), {})
         m = rp.get("mobile_4x") or {}
         fh = m.get("firstHeading") or {}
-        fold = " ".join(m.get("foldText") or [])
+        # 접힘 위 이미지의 alt 도 함께 본다 (로고에만 상호가 있는 경우가 흔하고, 기계는 alt 를 읽는다)
+        fold = " ".join((m.get("foldText") or []) + (m.get("foldAlts") or []))
         keys = [k for k in (brand, region, category) if k]
         if keys:
             hit = [k for k in keys if k.lower() in (fold + " " + (fh.get("text") or "")).lower()]
