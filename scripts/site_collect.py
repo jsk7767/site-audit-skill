@@ -350,6 +350,10 @@ def collect_live(origin: str, out: str, max_pages: int, extra: list[str], delay:
     res["pages_capped"] = bool(queue) and n >= max_pages
     res["not_in_sitemap"] = sorted({d for d in discovered if d in seen and d not in res["sitemap_locs"]})[:30]
     try:
+        res["dns_verification"] = probe_dns_verification(origin)
+    except Exception as e:
+        res["dns_verification"] = {"error": str(e)[:120]}
+    try:
         res["redirect_probe"] = probe_redirects(res["pages"])
     except Exception as e:
         res["redirect_probe"] = {"error": str(e)[:160]}
@@ -528,6 +532,36 @@ AI_BOT_UAS = [
 
 
 
+
+
+def probe_dns_verification(origin: str) -> dict:
+    """DNS TXT 에 남은 소유확인 흔적을 본다.
+
+    구글 서치콘솔은 메타 태그 말고 DNS TXT 로도 인증한다. 그 경우 HTML 에는 아무 표시가 없어서
+    메타만 보면 '미등록' 으로 오해하게 된다. 실제로 그런 사이트가 있었다.
+    파일 방식(/googleXXX.html, /naverXXX.html)은 파일명을 모르면 확인할 수 없으므로 여기서 다루지 않는다.
+    """
+    host = urllib.parse.urlsplit(origin).hostname or ""
+    if not host:
+        return {"error": "host 없음"}
+    txt: list[str] = []
+    try:
+        import subprocess
+        r = subprocess.run(["nslookup", "-type=TXT", host, "8.8.8.8"],
+                           capture_output=True, text=True, timeout=25, encoding="utf-8", errors="replace")
+        for line in (r.stdout or "").splitlines():
+            for m in re.finditer(r'"([^"]+)"', line):
+                v = m.group(1).strip()
+                if v and v not in txt:
+                    txt.append(v[:200])
+    except Exception as e:
+        return {"error": str(e)[:120]}
+    return {
+        "txt": txt[:12],
+        "google": any(t.lower().startswith("google-site-verification=") for t in txt),
+        "naver": any("naver-site-verification" in t.lower() for t in txt),
+        "bing": any("msvalidate" in t.lower() for t in txt),
+    }
 
 def probe_redirects(pages: dict, limit: int = 20, max_hops: int = 6) -> dict:
     """리다이렉트한 페이지만 골라 홉을 하나씩 따라간다.

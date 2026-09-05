@@ -300,16 +300,24 @@ def check_seo(F: Findings, c: dict, r: dict | None, facts: dict | None):
               fix="운영 페이지에서 noindex 제거", weight=10)
     else:
         F.ok("S-T-noindex", "S", "technical", "noindex 없음 (전 페이지 색인 가능)", evidence=[f"{n}페이지 robots meta·X-Robots-Tag 확인"])
-    # 소유확인
+    # 소유확인 — 메타뿐 아니라 DNS TXT 도 본다. 구글은 DNS 인증이 흔하고 그때 HTML 에는 아무 표시가 없다.
     va = c.get("verification_any") or {}
-    if not va.get("naver") and not va.get("google"):
-        # 메타 부재 ≠ 미등록 (파일·DNS 인증 가능). G-N-verify 와 같은 기준으로 HOLD, 감점 없음.
-        F.add("S-T-verify", "S", "technical", "INFO", "HOLD", "네이버·구글 소유확인 메타가 없습니다 (등록 여부 확인 필요)",
-              detail="파일/DNS 방식으로 이미 등록했을 수 있습니다. 메타가 없다는 사실만 확인된 것이며 미등록 확정은 아닙니다. 서치어드바이저·서치콘솔 화면으로 확인하고, 미등록이면 P1 로 올려 처리합니다.",
-              evidence=["naver-site-verification 0건", "google-site-verification 0건"],
-              fix="미등록이면: 서치어드바이저·서치콘솔 등록 → 사이트맵 제출 → 수집 요청", refs=["K26", "K71", "NEO-1"], weight=0)
+    dv = c.get("dns_verification") or {}
+    dns_ok = [k for k in ("google", "naver", "bing") if dv.get(k)]
+    if va.get("naver") or va.get("google"):
+        F.ok("S-T-verify", "S", "technical", "검색엔진 소유확인 메타 존재",
+             evidence=[f"메타 naver={va.get('naver')} google={va.get('google')}"] + ([f"DNS TXT {dns_ok}"] if dns_ok else []), refs=["NEO-1"])
+    elif dns_ok:
+        F.ok("S-T-verify", "S", "technical", f"소유확인 DNS TXT 존재 ({', '.join(dns_ok)})",
+             detail="메타 태그 대신 DNS 로 인증한 경우입니다. HTML 에는 표시가 남지 않으므로 메타만 보면 미등록으로 오해합니다.",
+             evidence=[f"TXT: {t[:60]}" for t in (dv.get("txt") or []) if "verification" in t.lower() or "msvalidate" in t.lower()][:3], refs=["NEO-1"])
     else:
-        F.ok("S-T-verify", "S", "technical", "검색엔진 소유확인 메타 존재", evidence=[f"naver={va.get('naver')} google={va.get('google')}"], refs=["NEO-1"])
+        # 메타도 DNS 도 없다. 파일 인증(/googleXXX.html)은 파일명을 모르면 확인 불가 → 여전히 HOLD.
+        F.add("S-T-verify", "S", "technical", "INFO", "HOLD", "네이버·구글 소유확인 흔적이 없습니다 (등록 여부 확인 필요)",
+              detail="메타와 DNS TXT 둘 다 없습니다. 다만 파일 방식(/googleXXX.html, /naverXXX.html)은 파일명을 모르면 확인할 수 없어 미등록 확정은 아닙니다. "
+                     "서치어드바이저·서치콘솔 화면으로 확인하고, 미등록이면 P1 로 올려 처리합니다.",
+              evidence=["naver-site-verification 0건", "google-site-verification 0건", f"DNS TXT {len(dv.get('txt') or [])}건 중 인증 레코드 0"],
+              fix="미등록이면: 서치어드바이저·서치콘솔 등록 → 사이트맵 제출 → 수집 요청", refs=["K26", "K71", "NEO-1"], weight=0)
     # canonical
     no_canon = [p for p, pg in pages.items() if not pg.get("canonical")]
     if no_canon:

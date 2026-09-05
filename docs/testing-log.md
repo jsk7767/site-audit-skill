@@ -201,3 +201,20 @@ doctor 재작성: 필수(python·playwright·chromium·node·anti-slop·axe)와 
 - `site_compare.py` 에 `mismatch_note()` — `scores.json` 의 `narrative_applied` 가 서로 다르면 `delta.md` 맨 위에 인용 블록 경고를 넣고 콘솔에도 찍는다
 - `site_report.py` 의 N사이트 비교표 — 섞여 있으면 표 위에 경고 박스, 어느 쪽이 적용됐고 어느 쪽이 아닌지 이름까지 적는다
 - 검증: 같은 기준끼리는 경고 없음, 다른 기준끼리는 4줄 경고 출력. 실제 델타 재생성으로 확인
+
+## 2026-09-05 소유확인 — 메타만 보면 놓친다 (DNS TXT 추가)
+
+세 사이트의 봇 노출을 실측하다가 `S-T-verify` 가 실제 등록된 사이트를 HOLD 로 두고 있는 것을 확인했다.
+
+**전 페이지 봇 스윕**: 세 사이트의 모든 페이지 + robots.txt·sitemap.xml·llms.txt 를 GPTBot·OAI-SearchBot·ClaudeBot·PerplexityBot·Yeti·Googlebot·Bingbot 7종 UA 로 요청(총 91회). **전부 사람과 동일한 상태코드·바이트.** 하위 경로 차단·클로킹 0.
+
+**발견**: 한 사이트가 소유확인 메타 없이 HOLD 였는데, DNS TXT 를 조회하니 `google-site-verification=` 레코드가 있었다. 구글 서치콘솔은 DNS 인증을 지원하고 그 경우 HTML 에 아무 표시가 남지 않는다.
+
+**조치**
+- `site_collect.py` `probe_dns_verification()` — nslookup 으로 TXT 를 읽어 google/naver/bing 인증 레코드 유무를 기록
+- `S-T-verify` 3분기: 메타 있음 → PASS · 메타 없고 DNS TXT 있음 → **PASS(DNS 방식)** · 둘 다 없음 → HOLD(파일 인증은 파일명을 몰라 확인 불가)
+- 검증: 해당 사이트 재수집 후 HOLD → PASS 로 바뀌는 것 확인
+
+**규칙이 옳았다는 실사례**: "메타 부재 ≠ 미등록" 이라는 판정 규칙 덕분에 감점하지 않았고, 실제로 등록돼 있었다.
+
+**함께 조치**: 한 사이트에 llms.txt rel=alternate 선언이 빠져 있어 추가(서버 파일 수정, 백업·md5·라이브 검증·롤백 명령 포함). 사람·GPTBot·Yeti 세 UA 로 반영 확인.
