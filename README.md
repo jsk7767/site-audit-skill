@@ -40,6 +40,7 @@ Python 표준 라이브러리와 Playwright만 씁니다. 유료 API 키가 필�
 | 절 | 내용 |
 |---|---|
 | **핵심 원칙 다섯** | 시간이 없으면 이것만. head 하드코딩 금지 · 증거로 쓰는 본문 · 봇으로 받아 보기 · 색 대비와 이름 · 스키마와 화면 일치 |
+| **AI 로 만들 때 넣을 지시문** | 바이브코딩용 붙여넣기 프롬프트. 문장마다 어떤 사고를 막는지, 대응 룰 id 와 함께 |
 | 0. 사실 기준표 | 사이트의 모든 사실이 나오는 단일 파일(`facts.json`). 페이지·스키마·llms.txt·플레이스가 이 표와 다르면 그게 결함 |
 | 1. 정보 구조 | 페이지 최소 세트. 한 페이지 한 질문 |
 | 2. `<head>` 표준 블록 | title·description·canonical·OG를 **페이지 변수로만**. 템플릿에 박지 않는다 |
@@ -114,7 +115,8 @@ py -3 scripts/doctor.py     # 또는 python / python3 / 가상환경의 python
 
 ```
 READY. 이 인터프리터로 실행하세요:
-  "C:\...\python.exe" "...\scriptsun_all.py" <URL> --name "매장명" --out ./example-audit
+  "C:\...\python.exe" "...\scripts
+un_all.py" <URL> --name "매장명" --out ./example-audit
 ```
 
 한 번 올바른 인터프리터로 시작하면 그 뒤는 알아서 따라갑니다. `run_all.py`가 하위 스크립트를 `sys.executable`로 부르기 때문입니다.
