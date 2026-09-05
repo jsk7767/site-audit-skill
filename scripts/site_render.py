@@ -233,14 +233,10 @@ def measure(pw, url: str, mobile: bool, throttle: bool, shots_dir: str, shot_pre
         m = pg.evaluate(PAGE_JS)
         out.update(m)
         n_initial = len(responses)   # 여기까지가 '초기 로드'. 이후 스크롤로 내려오는 lazy 자원은 따로 센다
-        # 스크린샷: 접힘 위 + 전체(높이 캡)
+        # 스크린샷 (1) 접힘 위 — 스크롤 전에 찍어야 손님이 처음 보는 화면 그대로다.
         os.makedirs(shots_dir, exist_ok=True)
         # scale="css": 모바일 DPR 3 이어도 CSS 픽셀 크기로 저장 (보고서 inline 용량 1/9)
         pg.screenshot(path=os.path.join(shots_dir, f"{shot_prefix}_fold.png"), scale="css")
-        try:
-            pg.screenshot(path=os.path.join(shots_dir, f"{shot_prefix}_full.png"), full_page=True, scale="css")
-        except Exception as e:  # 너무 긴 페이지
-            out["full_shot_error"] = str(e)[:120]
         out["screenshots"] = {"fold": f"screenshots/{shot_prefix}_fold.png", "full": f"screenshots/{shot_prefix}_full.png"}
         out["axe"] = run_axe(pg)
         out["agent"] = agent_signals(pg)
@@ -252,6 +248,17 @@ def measure(pw, url: str, mobile: bool, throttle: bool, shots_dir: str, shot_pre
         pg.wait_for_timeout(1500)
         after = pg.evaluate("() => ({cls: Math.round(window.__cls*1000)/1000, dom: document.getElementsByTagName('*').length, imgs: document.images.length})")
         out["afterScroll"] = after
+        # 스크린샷 (2) 전체 — 반드시 스크롤이 끝난 뒤에 찍는다.
+        # 지연 로딩(lazy) 이미지는 화면에 들어와야 뜬다. 스크롤 전에 찍으면 긴 페이지 가운데가
+        # 통째로 비어 나오고, 그걸 사이트 결함으로 오해하게 된다.
+        # 맨 위로 되돌린 뒤 찍는 이유: 고정 헤더가 중간 위치에 겹쳐 박히는 것을 막는다.
+        pg.evaluate("window.scrollTo(0,0)")
+        pg.wait_for_timeout(700)
+        try:
+            pg.screenshot(path=os.path.join(shots_dir, f"{shot_prefix}_full.png"), full_page=True, scale="css")
+            out["full_shot_after_scroll"] = True
+        except Exception as e:  # 너무 긴 페이지
+            out["full_shot_error"] = str(e)[:120]
     except Exception as e:
         out["error"] = f"{type(e).__name__}: {str(e)[:200]}"
         n_initial = len(responses)
